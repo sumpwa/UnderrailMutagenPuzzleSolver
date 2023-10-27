@@ -4,33 +4,30 @@
 #include <algorithm>
 #include <future>
 #include <iostream>
+#include <cmath>
 
 #ifdef WIN32
       // For GetTickCount
     #include <Windows.h>
 #endif
 
-struct SGene
-{
+struct SGene{
     enum EType { POSITIVE, NEGATIVE };
 
+    char name[3];
     EType type = POSITIVE;
-	char name[3];
     unsigned int mask = 0;
 
-    bool IsSame( const SGene& other ) const
-    {
+    bool IsSame( const SGene& other ) const{
         return name[0] == other.name[0] && name[1] == other.name[1];
     }
 
-    bool IsExactlySame(const SGene& other) const
-    {
+    bool IsExactlySame(const SGene& other) const{
         return type == other.type && IsSame(other);
     }
 };
 
-struct SMutagen
-{
+struct SMutagen{
 	std::string name;
 
 private:
@@ -39,8 +36,7 @@ private:
 public:
     const std::vector<SGene>& GetGenes() const { return genes; }
 
-    void AddGene( const SGene& g )
-    {
+    void AddGene( const SGene& g ){
         genes.push_back(g);
         if ( g.type == SGene::NEGATIVE )
             negativeGenes |= g.mask;
@@ -48,8 +44,7 @@ public:
             positiveGenes |= g.mask;
     }
 
-    void RemoveGene( const SGene& g )
-    {
+    void RemoveGene( const SGene& g ){
         auto iter = std::find_if(genes.begin(), genes.end(), [&g](const SGene& gene) { return g.IsSame(gene); });
         genes.erase(iter);
 
@@ -57,15 +52,13 @@ public:
         positiveGenes &= ~g.mask;
     }
 
-    void ClearGenes()
-    {
+    void ClearGenes(){
         genes.clear();
         negativeGenes = 0;
         positiveGenes = 0;
     }
 
-    void RemoveNegativeGenes()
-    {
+    void RemoveNegativeGenes(){
         genes.erase( std::remove_if( genes.begin(), genes.end(), [](const SGene& g) { return g.type == SGene::NEGATIVE; } ), genes.end() );
     }
 
@@ -73,10 +66,8 @@ public:
     unsigned int negativeGenes = 0;
 
 
-    void PrintGenes()
-    {
-        for (int i = 0; i < (int)genes.size(); ++i)
-        {
+    void PrintGenes(){
+        for (int i = 0; i < (int)genes.size(); ++i){
             if (genes[i].type == SGene::NEGATIVE)
                 printf("-");
             printf("%s", genes[i].name);
@@ -86,8 +77,7 @@ public:
     }
 };
 
-struct SSolution
-{
+struct SSolution{
     std::vector<const SMutagen*> steps;
     SMutagen result;
     int fitness = 0;
@@ -95,32 +85,24 @@ struct SSolution
     std::vector<SGene> toDelete;
     std::vector<SGene> toAdd;
 
-    SSolution()
-    {
+    SSolution(){
         toDelete.reserve(10);
         toAdd.reserve(10);
     }
 
-    bool AddMutagen(const SMutagen* m)
-    {
+    bool AddMutagen(const SMutagen* m){
         if ( !steps.empty() && m == steps.back() )
             return false;
 
         toDelete.clear();
         toAdd.clear();
 
-        for( const auto& gene : m->GetGenes() )
-        {
-            if ( gene.type == SGene::POSITIVE && ( result.negativeGenes & gene.mask ) )
-            {
+        for( const auto& gene : m->GetGenes() ){
+            if ( gene.type == SGene::POSITIVE && ( result.negativeGenes & gene.mask ) ){
                 result.RemoveGene(gene);
-            }
-            else if ( gene.type == SGene::NEGATIVE && ( result.positiveGenes & gene.mask ) )
-            {
+            } else if ( gene.type == SGene::NEGATIVE && ( result.positiveGenes & gene.mask ) ){
                 result.RemoveGene(gene);
-            }
-            else if ( !( gene.mask & result.positiveGenes || gene.mask & result.negativeGenes ) && gene.type != SGene::NEGATIVE )
-            {
+            } else if ( !( gene.mask & result.positiveGenes || gene.mask & result.negativeGenes ) && gene.type != SGene::NEGATIVE ){
                 result.AddGene(gene);
             }
         }
@@ -130,18 +112,15 @@ struct SSolution
     }
 
 
-    void PrintSteps()
-    {
+    void PrintSteps(){
         for (int i = 0; i < (int)steps.size(); ++i)
             printf("%s\n", steps[i]->name.c_str());
     }
 };
 
-class Solver
-{
+class Solver{
 public:
-    bool SetGoal( const std::string& genes )
-    {
+    bool SetGoal( const std::string& genes ){
         m_goal.name = "Exitus-1";
         if (!ParseMutagen(m_goal, genes))
             return false;
@@ -151,8 +130,7 @@ public:
         return true;
     }    
 
-    bool AddMutagen( const std::string& name, const std::string& genes )
-    {
+    bool AddMutagen( const std::string& name, const std::string& genes ){
         SMutagen m;
         m.name = name;
         if ( !ParseMutagen(m, genes) )
@@ -164,8 +142,7 @@ public:
         return true;
     }
 
-    void SetThreadsCount( int threadsCount )
-    {
+    void SetThreadsCount( int threadsCount ){
         m_threadsCount = threadsCount;
     }
 
@@ -257,53 +234,42 @@ public:
                     std::future_status status = f.wait_for(std::chrono::seconds(1));
                     if (status != std::future_status::ready)
                         allReady = false;
-                    else
-                    {
+                    else{
                         SSolution s = f.get();
-                        if (s.steps.size() > 0)
-                        {
+                        if (s.steps.size() > 0){
                             stopAll = true;
                             return true;
                         }
                     }
                 }
-
                 if (allReady)
                     break;
             }
         }
-
         return false;
     }
 
-    bool InputFromFile( const char* filename )
-    {
+    bool InputFromFile( const char* filename ){
         FILE *f = fopen(filename, "r");
-        if (!f)
-        {
+        if (!f){
             printf("Unable to open file %s\n", filename);
             return false;
         }
 
         int line = 1;
-        while(!feof(f))
-        {
+        while(!feof(f)){
             char mutagenName[256];
             char mutagenString[256];
 
-            if ( fscanf(f, "%[^:]:%*[ ]%[^\n]\n", mutagenName, mutagenString) != 2 )
-            {
+            if ( fscanf(f, "%[^:]:%*[ ]%[^\n]\n", mutagenName, mutagenString) != 2 ){
                 printf("Wrong file format at line %i\n", line );
                 return false;
             }            
 
-            if ( line == 1 )
-            {
+            if ( line == 1 ){
                 if ( !SetGoal(mutagenString))
                     return false;
-            }
-            else
-            {
+            } else {
                 if ( !AddMutagen(mutagenName, mutagenString) )
                     return false;
             }
@@ -314,8 +280,7 @@ public:
         return true;
     }
 
-    bool InputFromStdin()
-    {
+    bool InputFromStdin(){
         printf("\nPlease input each know mutagen when prompted.\n");
         printf("For unknown/unwanted mutagens, just press enter\n");
         
@@ -345,8 +310,7 @@ public:
     }
 
 private:
-    bool InputMutagen( const char* name, bool isGoal = false )
-    {
+    bool InputMutagen( const char* name, bool isGoal = false ){
         printf("%s: ", name);
         std::string mutagenString;
         std::getline(std::cin, mutagenString);
@@ -360,15 +324,13 @@ private:
     }
 
 private:
-    bool ParseMutagen( SMutagen &m, const std::string& genes )
-    {        
+    bool ParseMutagen( SMutagen &m, const std::string& genes ){        
         size_t prevPos = 0;
         size_t pos = 0;
         while ((pos = genes.find(' ', pos)) != std::string::npos)
         {
             SGene gene;
-            if (!ParseGene(gene, genes, prevPos, pos))
-            {
+            if (!ParseGene(gene, genes, prevPos, pos)){
                 fprintf(stderr, "Failed to parse gene at %i: %s\n", prevPos, &genes[prevPos]);
                 return false;
             }
@@ -380,8 +342,7 @@ private:
         }
 
         SGene gene;
-        if (!ParseGene(gene, genes, prevPos, genes.size() - 1))
-        {
+        if (!ParseGene(gene, genes, prevPos, genes.size() - 1)){
             fprintf(stderr, "Failed to parse gene at %i: %s\n", prevPos, &genes[prevPos]);
             return false;
         }
@@ -392,27 +353,23 @@ private:
         return true;
     }
 
-    bool ParseGene( SGene& gene, const std::string& genes, size_t from, size_t to )
-    {
+    bool ParseGene( SGene& gene, const std::string& genes, size_t from, size_t to ){
         size_t pos = from;
         while ( genes[pos] == ' ' && pos < to ) ++pos;
         if ( pos > to )
             return true;
 
-        if ( genes[pos] == '-' )
-        {
+        if ( genes[pos] == '-' ){
             gene.type = SGene::NEGATIVE;
             ++pos;
         }
-        if (pos > to)
-        {
+        if (pos > to){
             fprintf(stderr, "Gene sequence is too short. Should be [-]AB\n");
             return false;
         }
 
         gene.name[0] = genes[pos++];
-        if (pos > to)
-        {
+        if (pos > to){
             fprintf(stderr, "Gene sequence is too short. Should be [-]AB\n");
             return false;
         }
@@ -421,18 +378,15 @@ private:
         gene.name[2] = '\0';
 
         bool known = false;
-        for ( int i = 0; i < (int)m_knownGenes.size(); ++i )
-        {
-            if ( m_knownGenes[i].name[0] == gene.name[0] && m_knownGenes[i].name[1] == gene.name[1] )
-            {
+        for ( int i = 0; i < (int)m_knownGenes.size(); ++i ){
+            if ( m_knownGenes[i].name[0] == gene.name[0] && m_knownGenes[i].name[1] == gene.name[1] ){
                 gene.mask = m_knownGenes[i].mask;
                 known = true;
                 break;
             }
         }
 
-        if ( !known )
-        {
+        if ( !known ){
             SGeneInfo newGene;
             newGene.name[0] = gene.name[0];
             newGene.name[1] = gene.name[1];
@@ -458,12 +412,10 @@ private:
     int m_threadsCount;
 };
 
-int main( int argc, char** argv )
-{
+int main( int argc, char** argv ){
 	printf("\nUnderrail Mutagen Puzzle Solver v1.0 by MaxEd http://zxstudio.org\n");
 
-    if ( argc < 2 )
-    {
+    if ( argc < 2 ){
         printf("\nUsage:\n");
         printf("\n");
         printf("-f FILE -- read mutagens from file\n");
@@ -494,19 +446,15 @@ int main( int argc, char** argv )
     std::string filename;
     int numThreads = 4;
 
-    for( int i = 1; i < argc; ++i )
-    {
+    for( int i = 1; i < argc; ++i ){
         std::string arg = argv[i];
-        if ( arg[0] != '-')
-        {
+        if ( arg[0] != '-'){
             printf("Bad command-line argument: %s\n", arg.c_str());
             return -1;
         }
 
-        if ( arg == "-f" )
-        {
-            if ( i == argc - 1)
-            {
+        if ( arg == "-f" ){
+            if ( i == argc - 1){
                 printf("-f requires filename\n");
                 return -1;
             }
@@ -516,30 +464,25 @@ int main( int argc, char** argv )
             continue;
         }
 
-        if ( arg == "-i" )
-        {
+        if ( arg == "-i" ){
             interactive = true;
             continue;
         }
 
-        if ( arg == "-t" )
-        {
-            if (i == argc - 1)
-            {
+        if ( arg == "-t" ){
+            if (i == argc - 1){
                 printf("-t requires number of threads\n");
                 return -1;
             }
 
             numThreads = atoi(argv[i+1]);
 
-            if ( numThreads < 1 )
-            {
+            if ( numThreads < 1 ){
                 printf("-t requires POSITIVE number of threads\n");
                 return -1;
             }
 
-            if (numThreads > 16)
-            {
+            if (numThreads > 16){
                 printf("Unusually large number of threads specified (%i). I assume you know what you are doing\n", numThreads);
             }
 
@@ -548,8 +491,7 @@ int main( int argc, char** argv )
         }
     }
 
-    if ( interactive && !filename.empty() )
-    {
+    if ( interactive && !filename.empty() ){
         printf("Both -f and -i are specified. Make up your mind, dammit!\n");
         return -1;
     }
@@ -557,13 +499,10 @@ int main( int argc, char** argv )
 	Solver solver;
     solver.SetThreadsCount(numThreads);
 
-    if ( !filename.empty() )
-    {
+    if ( !filename.empty() ){
         if ( !solver.InputFromFile(filename.c_str()) )
             return -1;
-    }
-    else
-    {
+    } else {
         if ( !solver.InputFromStdin() )
             return -1;
     }
@@ -595,12 +534,9 @@ int main( int argc, char** argv )
     int t1 = GetTickCount();
 #endif
     SSolution solution;
-    if ( solver.Solve( solution ) )
-    {
+    if ( solver.Solve( solution ) ){
         printf("\nSolution found!\n");
-    }
-    else
-    {
+    } else {
         printf("\nUnable to find a solution!\n");
     }
 #ifdef WIN32
